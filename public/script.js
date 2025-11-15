@@ -29,7 +29,8 @@ async function loadModel() {
     try {
         latestStatus.innerText = "Model loading…";
 
-        model = await tf.loadLayersModel("/public/model/model.json");
+        // FIXED PATH
+        model = await tf.loadLayersModel("/model/model.json");
 
         latestStatus.innerText = "Model Loaded ✔";
         console.log("MODEL LOADED!");
