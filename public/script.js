@@ -1,75 +1,90 @@
-// CONNECT SOCKET.IO TO RENDER BACKEND
+// CONNECT SOCKET.IO TO BACKEND
 const socket = io("https://smart-grain-analyzer.onrender.com");
 
-// Elements
-const imgBox = document.getElementById("liveImage");
-const aiResult = document.getElementById("aiResult");
-const moistText = document.getElementById("moistureReading");
-const historyList = document.getElementById("predictionHistory");
+// CAMERA ELEMENTS
+let model;
+let video = document.getElementById("video");
+let latestImage = document.getElementById("latestImage");
+let latestStatus = document.getElementById("latestStatus");
 
-// Moisture Graph
-let moistureLabels = [];
-let moistureValues = [];
+const labels = ["Good Rice", "Bad Rice", "Wet Rice"];
 
-const ctx = document.getElementById("moistureChart").getContext("2d");
+// ------------ START CAMERA ------------
+async function startCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" }
+        });
+        video.srcObject = stream;
+        video.play();
+    } catch (err) {
+        console.error("Camera Error:", err);
+        latestStatus.innerText = "Camera Error!";
+    }
+}
+startCamera();
 
-const moistureChart = new Chart(ctx, {
-  type: "line",
-  data: {
-    labels: moistureLabels,
-    datasets: [{
-      label: "Moisture",
-      data: moistureValues,
-      borderColor: "#4ea1ff",
-      backgroundColor: "rgba(78,161,255,0.2)",
-      fill: true
-    }]
-  }
-});
+// ------------ LOAD MODEL ------------
+async function loadModel() {
+    try {
+        latestStatus.innerText = "Model loading…";
 
-// Pie Chart
-let count = { Good: 0, Bad: 0, Wet: 0 };
+        model = await tf.loadLayersModel("/public/model/model.json");
 
-const pie = new Chart(document.getElementById("pieChart"), {
-  type: "pie",
-  data: {
-    labels: ["Good", "Bad", "Wet"],
-    datasets: [{
-      data: [0, 0, 0],
-      backgroundColor: ["#27ae60", "#c0392b", "#f1c40f"]
-    }]
-  }
-});
+        latestStatus.innerText = "Model Loaded ✔";
+        console.log("MODEL LOADED!");
+    } catch (e) {
+        console.error("Model Load Error:", e);
+        latestStatus.innerText = "Model Load Failed!";
+    }
+}
+loadModel();
 
-// SOCKET LISTENERS =====================
+// ------------ PREDICT FRAME ------------
+async function predictFrame() {
+    if (!model || video.videoWidth === 0) return;
 
-// Prediction & Image
-socket.on("new-classification", data => {
-  imgBox.src = data.image;
-  aiResult.innerText = `${data.result.label} (${data.result.confidence}%)`;
+    const tensor = tf.tidy(() => {
+        return tf.browser.fromPixels(video)
+            .resizeNearestNeighbor([224, 224])
+            .toFloat()
+            .div(255)
+            .expandDims(0);
+    });
 
-  let key = data.result.label.split(" ")[0];
-  if (count[key] !== undefined) count[key]++;
+    const prediction = model.predict(tensor);
+    const data = await prediction.data();
 
-  pie.data.datasets[0].data = [count.Good, count.Bad, count.Wet];
-  pie.update();
+    const index = data.indexOf(Math.max(...data));
+    const confidence = (data[index] * 100).toFixed(1);
 
-  const li = document.createElement("li");
-  li.innerText = `${data.result.label} - ${data.result.confidence}%`;
-  historyList.prepend(li);
-});
+    const result = {
+        label: labels[index],
+        confidence: confidence
+    };
 
-// Moisture
-socket.on("moisture-update", data => {
-  moistText.innerText = `${data.moisture}%`;
+    latestStatus.innerText = `${result.label} (${result.confidence}%)`;
 
-  moistureLabels.push(data.time);
-  moistureValues.push(data.moisture);
+    const base64 = captureImage();
+    latestImage.src = base64;
 
-  if (moistureLabels.length > 40) {
-    moistureLabels.shift();
-    moistureValues.shift();
-  }
+    // Send real-time data to backend (socket.io)
+    socket.emit("classification", {
+        image: base64,
+        result: result
+    });
+}
 
-  moistureChart.update();
-});
+function captureImage() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 224;
+    canvas.height = 224;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, 224, 224);
+
+    return canvas.toDataURL("image/jpeg");
+}
+
+// Auto Predict every 1 sec
+setInterval(predictFrame, 1000);

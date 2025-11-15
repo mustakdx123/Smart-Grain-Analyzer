@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // Public files
-app.use(express.static(path.join(__dirname, "../public")));
+app.use("/public", express.static(path.join(__dirname, "../public")));
 app.use(express.json());
 
 const upload = multer({ dest: "uploads/" });
