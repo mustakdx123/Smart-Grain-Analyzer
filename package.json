@@ -1,0 +1,13 @@
+{
+  "name": "smart-grain",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "multer": "^2.0.2",
+    "chart.js": "^4.5.1"
+  }
+}

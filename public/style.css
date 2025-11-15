@@ -1,0 +1,68 @@
+body {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'Poppins', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 1400px;
+  margin: auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #4ea1ff;
+}
+
+.grid-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.card {
+  background: #161b22;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 0 10px #000;
+}
+
+.big-image img {
+  width: 100%;
+  border-radius: 10px;
+}
+
+.reading {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #4ea1ff;
+}
+
+#predictionHistory {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#predictionHistory li {
+  padding: 6px 0;
+  border-bottom: 1px solid #333;
+}
+
+.camera-box video {
+  width: 100%;
+  border-radius: 12px;
+}
+
+.status-box {
+  margin-top: 10px;
+  padding: 15px;
+  background: #161b22;
+  border-radius: 10px;
+  color: #4ea1ff;
+  font-weight: bold;
+  text-align: center;
+}
