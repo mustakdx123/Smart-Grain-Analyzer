@@ -9,14 +9,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
-const io = new Server(server);
 
-app.use(express.json());
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // Serve PUBLIC folder
 app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.json());
 
-// DEFAULT HOME ROUTE (Fix for Render)
+// HOME ROUTE
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "../public/index.html"));
 });
@@ -29,11 +34,12 @@ io.on("connection", socket => {
     console.log("Client connected:", socket.id);
 
     socket.on("classification", data => {
+        console.log("Forwarding classification to dashboards...");
         io.emit("new-classification", data);
     });
 });
 
-// Backup upload (not needed but kept)
+// Backup upload
 app.post("/upload", upload.single("riceImage"), (req, res) => {
     const imgPath = req.file.path;
     const base64 = fs.readFileSync(imgPath, { encoding: "base64" });
@@ -53,5 +59,4 @@ app.post("/upload", upload.single("riceImage"), (req, res) => {
 const moistureRoute = require("./routes/moistureRoute")(io);
 app.use("/moisture", moistureRoute);
 
-// RUN SERVER
 server.listen(PORT, () => console.log(`Server running on ${PORT}`));
