@@ -11,55 +11,47 @@ const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Public files
-app.use("/public", express.static(path.join(__dirname, "../public")));
 app.use(express.json());
 
+// Serve PUBLIC folder
+app.use(express.static(path.join(__dirname, "../public")));
+
+// DEFAULT HOME ROUTE (Fix for Render)
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "../public/index.html"));
+});
+
+// Upload
 const upload = multer({ dest: "uploads/" });
 
-// ============================
-// 📌 SOCKET.IO CONNECTION
-// ============================
+// SOCKET.IO
 io.on("connection", socket => {
-    console.log("📡 Client connected:", socket.id);
+    console.log("Client connected:", socket.id);
 
-    // Receive classification from mobile (script.js)
     socket.on("classification", data => {
-        console.log("📨 Classification received:", data.result);
-
-        // Broadcast to dashboard
-        io.emit("new-classification", {
-            image: data.image,
-            result: data.result
-        });
+        io.emit("new-classification", data);
     });
 });
 
-// ============================
-// 📌 API ROUTE (Upload backup)
-// ============================
+// Backup upload (not needed but kept)
 app.post("/upload", upload.single("riceImage"), (req, res) => {
     const imgPath = req.file.path;
-
     const base64 = fs.readFileSync(imgPath, { encoding: "base64" });
-    const imageURL = `data:image/jpeg;base64,${base64}`;
-
-    const label = req.body.label;
-    const confidence = req.body.confidence;
 
     io.emit("new-classification", {
-        image: imageURL,
-        result: { label, confidence }
+        image: `data:image/jpeg;base64,${base64}`,
+        result: {
+            label: req.body.label,
+            confidence: req.body.confidence
+        }
     });
 
     res.json({ ok: true });
 });
 
-// ============================
-// 📌 MOISTURE ROUTE
-// ============================
+// Moisture
 const moistureRoute = require("./routes/moistureRoute")(io);
 app.use("/moisture", moistureRoute);
 
-// ============================
+// RUN SERVER
 server.listen(PORT, () => console.log(`Server running on ${PORT}`));
