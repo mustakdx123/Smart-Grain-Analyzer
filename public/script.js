@@ -45,13 +45,14 @@ loadModel();
 async function predictFrame() {
     if (!model || video.videoWidth === 0) return;
 
-    const tensor = tf.tidy(() => {
-        return tf.browser.fromPixels(video)
-            .resizeNearestNeighbor([224, 224])
-            .toFloat()
-            .div(255)
-            .expandDims(0);
-    });
+   const tensor = tf.tidy(() => {
+    return tf.browser.fromPixels(video)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .div(127.5)
+        .sub(1)
+        .expandDims(0);
+});
 
     const prediction = model.predict(tensor);
     const data = await prediction.data();
