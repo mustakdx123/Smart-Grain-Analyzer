@@ -2,92 +2,74 @@
 const socket = io("https://smart-grain-analyzer.onrender.com");
 
 // Elements
-const video = document.getElementById("video");
-const statusBox = document.getElementById("latestStatus");
-const latestImage = document.getElementById("latestImage");
+const imgBox = document.getElementById("liveImage");
+const aiResult = document.getElementById("aiResult");
+const moistText = document.getElementById("moistureReading");
+const historyList = document.getElementById("predictionHistory");
 
-// Load Frontend Model
-let model;
+// Moisture Graph
+let moistureLabels = [];
+let moistureValues = [];
 
-(async () => {
-    model = await tf.loadLayersModel("/model/model.json");
-    statusBox.innerText = "Model Loaded";
-    console.log("Frontend AI Model Loaded");
-})();
+const ctx = document.getElementById("moistureChart").getContext("2d");
 
-// Start Camera
-async function startCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" }
-        });
-        video.srcObject = stream;
-    } catch (err) {
-        console.error("Camera Error:", err);
-        statusBox.innerText = "Camera Error!";
-    }
-}
+const moistureChart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: moistureLabels,
+    datasets: [{
+      label: "Moisture",
+      data: moistureValues,
+      borderColor: "#4ea1ff",
+      backgroundColor: "rgba(78,161,255,0.2)",
+      fill: true
+    }]
+  }
+});
 
-startCamera();
+// Pie Chart
+let count = { Good: 0, Bad: 0, Wet: 0 };
 
-// Capture Frame
-function captureFrame() {
-    if (video.videoWidth === 0) return null;
+const pie = new Chart(document.getElementById("pieChart"), {
+  type: "pie",
+  data: {
+    labels: ["Good", "Bad", "Wet"],
+    datasets: [{
+      data: [0, 0, 0],
+      backgroundColor: ["#27ae60", "#c0392b", "#f1c40f"]
+    }]
+  }
+});
 
-    const canvas = document.createElement("canvas");
-    canvas.width = 224;
-    canvas.height = 224;
+// SOCKET LISTENERS =====================
 
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, 224, 224);
+// Prediction & Image
+socket.on("new-classification", data => {
+  imgBox.src = data.image;
+  aiResult.innerText = `${data.result.label} (${data.result.confidence}%)`;
 
-    latestImage.src = canvas.toDataURL("image/jpeg");
+  let key = data.result.label.split(" ")[0];
+  if (count[key] !== undefined) count[key]++;
 
-    return canvas;
-}
+  pie.data.datasets[0].data = [count.Good, count.Bad, count.Wet];
+  pie.update();
 
-// Predict Using Frontend AI
-async function predictFrontend(canvas) {
-    const tensor = tf.browser.fromPixels(canvas)
-        .resizeNearestNeighbor([224, 224])
-        .toFloat()
-        .div(255.0)
-        .expandDims(0);
+  const li = document.createElement("li");
+  li.innerText = `${data.result.label} - ${data.result.confidence}%`;
+  historyList.prepend(li);
+});
 
-    const output = model.predict(tensor);
-    const scores = await output.data();
+// Moisture
+socket.on("moisture-update", data => {
+  moistText.innerText = `${data.moisture}%`;
 
-    const labels = ["Good Rice", "Bad Rice", "Wet Rice"];
-    const bestIndex = scores.indexOf(Math.max(...scores));
+  moistureLabels.push(data.time);
+  moistureValues.push(data.moisture);
 
-    return {
-        label: labels[bestIndex],
-        confidence: (scores[bestIndex] * 100).toFixed(2)
-    };
-}
+  if (moistureLabels.length > 40) {
+    moistureLabels.shift();
+    moistureValues.shift();
+  }
 
-// Process Frame Every 10 Seconds
-async function processFrame() {
-    if (!model) return;
-
-    const canvas = captureFrame();
-    if (!canvas) return;
-
-    const result = await predictFrontend(canvas);
-
-    statusBox.innerText = `AI: ${result.label} (${result.confidence}%)`;
-
-    // Send to backend for dashboard
-    const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg"));
-    const fd = new FormData();
-    fd.append("riceImage", blob);
-    fd.append("label", result.label);
-    fd.append("confidence", result.confidence);
-
-    await fetch("https://smart-grain-analyzer.onrender.com/upload", {
-        method: "POST",
-        body: fd
-    });
-}
-
-setInterval(processFrame, 10000);
+  moistureChart.update();
+});

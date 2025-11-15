@@ -11,12 +11,33 @@ const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Public
+// Public files
 app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.json());
 
 const upload = multer({ dest: "uploads/" });
 
-// Receives image + prediction
+// ============================
+// 📌 SOCKET.IO CONNECTION
+// ============================
+io.on("connection", socket => {
+    console.log("📡 Client connected:", socket.id);
+
+    // Receive classification from mobile (script.js)
+    socket.on("classification", data => {
+        console.log("📨 Classification received:", data.result);
+
+        // Broadcast to dashboard
+        io.emit("new-classification", {
+            image: data.image,
+            result: data.result
+        });
+    });
+});
+
+// ============================
+// 📌 API ROUTE (Upload backup)
+// ============================
 app.post("/upload", upload.single("riceImage"), (req, res) => {
     const imgPath = req.file.path;
 
@@ -34,8 +55,11 @@ app.post("/upload", upload.single("riceImage"), (req, res) => {
     res.json({ ok: true });
 });
 
-// Moisture
+// ============================
+// 📌 MOISTURE ROUTE
+// ============================
 const moistureRoute = require("./routes/moistureRoute")(io);
 app.use("/moisture", moistureRoute);
 
+// ============================
 server.listen(PORT, () => console.log(`Server running on ${PORT}`));
