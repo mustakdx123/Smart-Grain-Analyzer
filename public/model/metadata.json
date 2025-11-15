@@ -1,1 +1,3 @@
-{"tfjsVersion":"1.7.4","tmVersion":"2.4.10","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2025-11-15T07:43:12.803Z","userMetadata":{},"modelName":"tm-my-image-model","labels":["Good Rice","Bad Rice","Wet Rice"],"imageSize":224}
+version https://git-lfs.github.com/spec/v1
+oid sha256:41db046a6a8f4e33e0d6fb9b7d46dbdd916d772f9c7cb4eb0a9b404c6dcc12a6
+size 266
