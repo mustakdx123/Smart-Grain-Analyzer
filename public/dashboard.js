@@ -1,63 +1,75 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Smart Grain Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
+// CONNECT SOCKET.IO TO RENDER BACKEND
+const socket = io("https://smart-grain-analyzer.onrender.com");
 
-<body>
-  <div class="container">
+// Elements
+const imgBox = document.getElementById("liveImage");
+const aiResult = document.getElementById("aiResult");
+const moistText = document.getElementById("moistureReading");
+const historyList = document.getElementById("predictionHistory");
 
-    <h1>Smart Grain Quality Dashboard</h1>
+// Moisture Graph
+let moistureLabels = [];
+let moistureValues = [];
 
-    <div class="grid-layout">
+const ctx = document.getElementById("moistureChart").getContext("2d");
 
-      <!-- LEFT SIDE -->
-      <div class="left-panel">
+const moistureChart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: moistureLabels,
+    datasets: [{
+      label: "Moisture",
+      data: moistureValues,
+      borderColor: "#4ea1ff",
+      backgroundColor: "rgba(78,161,255,0.2)",
+      fill: true
+    }]
+  }
+});
 
-        <div class="card big-image">
-          <h2>Live Latest Capture</h2>
-          <img id="liveImage" src="" style="width:100%; border-radius:10px;">
-        </div>
+// Pie Chart
+let count = { Good: 0, Bad: 0, Wet: 0 };
 
-        <div class="card">
-          <h3>AI Prediction</h3>
-          <div id="aiResult" class="reading">Waiting...</div>
-        </div>
+const pie = new Chart(document.getElementById("pieChart"), {
+  type: "pie",
+  data: {
+    labels: ["Good", "Bad", "Wet"],
+    datasets: [{
+      data: [0, 0, 0],
+      backgroundColor: ["#27ae60", "#c0392b", "#f1c40f"]
+    }]
+  }
+});
 
-        <div class="card">
-          <h3>Moisture Level</h3>
-          <div id="moistureReading" class="reading">-- %</div>
-        </div>
+// SOCKET LISTENERS =====================
 
-      </div>
+// Prediction & Image
+socket.on("new-classification", data => {
+  imgBox.src = data.image;
+  aiResult.innerText = `${data.result.label} (${data.result.confidence}%)`;
 
-      <!-- RIGHT SIDE -->
-      <div class="right-panel">
+  let key = data.result.label.split(" ")[0];
+  if (count[key] !== undefined) count[key]++;
 
-        <div class="card">
-          <h3>Moisture Graph</h3>
-          <canvas id="moistureChart"></canvas>
-        </div>
+  pie.data.datasets[0].data = [count.Good, count.Bad, count.Wet];
+  pie.update();
 
-        <div class="card">
-          <h3>Prediction History</h3>
-          <ul id="predictionHistory"></ul>
-        </div>
+  const li = document.createElement("li");
+  li.innerText = `${data.result.label} - ${data.result.confidence}%`;
+  historyList.prepend(li);
+});
 
-        <div class="card">
-          <h3>Quality Distribution</h3>
-          <canvas id="pieChart"></canvas>
-        </div>
+// Moisture
+socket.on("moisture-update", data => {
+  moistText.innerText = `${data.moisture}%`;
 
-      </div>
-    </div>
+  moistureLabels.push(data.time);
+  moistureValues.push(data.moisture);
 
-  </div>
+  if (moistureLabels.length > 40) {
+    moistureLabels.shift();
+    moistureValues.shift();
+  }
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="dashboard.js"></script>
-</body>
-</html>
+  moistureChart.update();
+});

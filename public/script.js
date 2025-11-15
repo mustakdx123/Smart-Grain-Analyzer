@@ -1,14 +1,18 @@
+// CONNECT SOCKET.IO TO RENDER BACKEND
+const socket = io("https://smart-grain-analyzer.onrender.com");
+
+// Elements
 const video = document.getElementById("video");
 const statusBox = document.getElementById("latestStatus");
 const latestImage = document.getElementById("latestImage");
 
+// Load Frontend Model
 let model;
 
-// Load model (Frontend)
 (async () => {
     model = await tf.loadLayersModel("/model/model.json");
-    statusBox.innerText = "Model Loaded. Starting...";
-    console.log("Frontend Model Loaded");
+    statusBox.innerText = "Model Loaded";
+    console.log("Frontend AI Model Loaded");
 })();
 
 // Start Camera
@@ -18,8 +22,6 @@ async function startCamera() {
             video: { facingMode: "environment" }
         });
         video.srcObject = stream;
-
-        video.onloadedmetadata = () => video.play();
     } catch (err) {
         console.error("Camera Error:", err);
         statusBox.innerText = "Camera Error!";
@@ -28,7 +30,7 @@ async function startCamera() {
 
 startCamera();
 
-// Capture Frame & Make Tensor
+// Capture Frame
 function captureFrame() {
     if (video.videoWidth === 0) return null;
 
@@ -39,57 +41,53 @@ function captureFrame() {
     const ctx = canvas.getContext("2d");
     ctx.drawImage(video, 0, 0, 224, 224);
 
-    // Show latest frame
     latestImage.src = canvas.toDataURL("image/jpeg");
 
     return canvas;
 }
 
-// Predict from frontend model
+// Predict Using Frontend AI
 async function predictFrontend(canvas) {
-    const imgData = tf.browser.fromPixels(canvas)
+    const tensor = tf.browser.fromPixels(canvas)
         .resizeNearestNeighbor([224, 224])
         .toFloat()
         .div(255.0)
         .expandDims(0);
 
-    const pred = model.predict(imgData);
-    const scores = await pred.data();
+    const output = model.predict(tensor);
+    const scores = await output.data();
 
     const labels = ["Good Rice", "Bad Rice", "Wet Rice"];
-    const maxIdx = scores.indexOf(Math.max(...scores));
+    const bestIndex = scores.indexOf(Math.max(...scores));
 
     return {
-        label: labels[maxIdx],
-        confidence: (scores[maxIdx] * 100).toFixed(2)
+        label: labels[bestIndex],
+        confidence: (scores[bestIndex] * 100).toFixed(2)
     };
 }
 
+// Process Frame Every 10 Seconds
 async function processFrame() {
     if (!model) return;
 
     const canvas = captureFrame();
     if (!canvas) return;
 
-    // FRONTEND PREDICTION
     const result = await predictFrontend(canvas);
 
     statusBox.innerText = `AI: ${result.label} (${result.confidence}%)`;
 
-    // Convert to Blob for backend
+    // Send to backend for dashboard
     const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg"));
-
     const fd = new FormData();
     fd.append("riceImage", blob);
     fd.append("label", result.label);
     fd.append("confidence", result.confidence);
 
-    // SEND TO BACKEND for dashboard
-    await fetch("/upload", {
+    await fetch("https://smart-grain-analyzer.onrender.com/upload", {
         method: "POST",
         body: fd
     });
 }
 
-// Run every 10 seconds
 setInterval(processFrame, 10000);
