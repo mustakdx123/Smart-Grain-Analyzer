@@ -2,24 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Smart Grain Capture</title>
+  <title>Smart Grain - Camera</title>
   <link rel="stylesheet" href="style.css">
+
+  <!-- TensorFlow JS for frontend model -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 </head>
 
 <body>
-  <div class="container">
-    <h1>Smart Grain Analyzer - Camera</h1>
 
-    <div class="camera-box">
-      <video id="video" autoplay playsinline></video>
+  <div class="container">
+    <h1>Smart Grain Analyzer – Camera</h1>
+
+    <!-- LIVE CAMERA FEED -->
+    <video id="video" autoplay playsinline style="
+      width:100%;
+      max-width:500px;
+      border-radius:12px;
+      background:#000;
+    "></video>
+
+    <br><br>
+
+    <!-- LAST CAPTURED IMAGE -->
+    <h3>Latest Captured Frame</h3>
+    <img id="latestImage" src="" style="
+      width:240px;
+      border-radius:10px;
+      border:2px solid #333;
+    ">
+
+    <br><br>
+
+    <!-- AI PREDICTION STATUS -->
+    <div id="latestStatus" style="
+      background:#161b22;
+      color:#4ea1ff;
+      padding:15px;
+      border-radius:10px;
+      width: fit-content;
+      font-size:18px;
+      margin-top:10px;
+    ">
+      Model loading…
     </div>
 
-    <h3>Auto-Capture Every 10s + Auto AI Prediction</h3>
-    <div id="latestStatus" class="status-box">Scanning...</div>
+    <br><br>
+    <p>Camera auto-captures every 10 seconds.</p>
+
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
+
 </body>
 </html>

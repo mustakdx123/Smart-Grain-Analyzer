@@ -1,40 +1,41 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const http = require('http');
-const { Server } = require('socket.io');
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.json());
-app.use(express.static('public'));
+// Public
+app.use(express.static(path.join(__dirname, "../public")));
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: "uploads/" });
 
-app.post('/upload', upload.single('riceImage'), async (req, res) => {
+// Receives image + prediction
+app.post("/upload", upload.single("riceImage"), (req, res) => {
+    const imgPath = req.file.path;
 
-  const imgPath = req.file.path;
+    const base64 = fs.readFileSync(imgPath, { encoding: "base64" });
+    const imageURL = `data:image/jpeg;base64,${base64}`;
 
-  // Send image to dashboard in Base64
-  const base64 = fs.readFileSync(imgPath, { encoding: "base64" });
-  const url = `data:image/jpeg;base64,${base64}`;
+    const label = req.body.label;
+    const confidence = req.body.confidence;
 
-  // DUMMY LABEL FOR NOW (Frontend AI is final)
-  const result = {
-    label: "Processing",
-    confidence: 0
-  };
+    io.emit("new-classification", {
+        image: imageURL,
+        result: { label, confidence }
+    });
 
-  io.emit("new-classification", { image: url, result });
-
-  res.json(result);
+    res.json({ ok: true });
 });
 
-// Moisture Route
-const moistureRoute = require('./routes/moistureRoute')(io);
-app.use('/moisture', moistureRoute);
+// Moisture
+const moistureRoute = require("./routes/moistureRoute")(io);
+app.use("/moisture", moistureRoute);
 
-server.listen(3000, () => console.log("Server running on 3000"));
+server.listen(PORT, () => console.log(`Server running on ${PORT}`));

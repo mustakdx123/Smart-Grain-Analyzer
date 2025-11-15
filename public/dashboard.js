@@ -1,72 +1,63 @@
-const socket = io();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Grain Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
 
-// Elements
-const imgBox = document.getElementById("liveImage");
-const aiResult = document.getElementById("aiResult");
-const moistText = document.getElementById("moistureReading");
-const historyList = document.getElementById("predictionHistory");
+<body>
+  <div class="container">
 
-// Moisture Chart Setup
-let moistureLabels = [];
-let moistureValues = [];
+    <h1>Smart Grain Quality Dashboard</h1>
 
-const ctx = document.getElementById("moistureChart").getContext("2d");
-const moistureChart = new Chart(ctx, {
-  type: "line",
-  data: {
-    labels: moistureLabels,
-    datasets: [{
-      label: "Moisture",
-      data: moistureValues,
-      borderColor: "#4ea1ff",
-      backgroundColor: "rgba(78,161,255,0.2)",
-      fill: true
-    }]
-  }
-});
+    <div class="grid-layout">
 
-// Pie chart setup
-let count = { Good: 0, Bad: 0, Wet: 0 };
+      <!-- LEFT SIDE -->
+      <div class="left-panel">
 
-const pie = new Chart(document.getElementById("pieChart"), {
-  type: "pie",
-  data: {
-    labels: ["Good", "Bad", "Wet"],
-    datasets: [{
-      data: [0, 0, 0],
-      backgroundColor: ["#27ae60", "#c0392b", "#f1c40f"]
-    }]
-  }
-});
+        <div class="card big-image">
+          <h2>Live Latest Capture</h2>
+          <img id="liveImage" src="" style="width:100%; border-radius:10px;">
+        </div>
 
-// SOCKET EVENTS
-socket.on("new-classification", data => {
+        <div class="card">
+          <h3>AI Prediction</h3>
+          <div id="aiResult" class="reading">Waiting...</div>
+        </div>
 
-  imgBox.src = data.image;
-  aiResult.innerText = `${data.result.label} (${data.result.confidence}%)`;
+        <div class="card">
+          <h3>Moisture Level</h3>
+          <div id="moistureReading" class="reading">-- %</div>
+        </div>
 
-  // Update pie chart
-  count[data.result.label.split(" ")[0]]++;
-  pie.data.datasets[0].data = [count.Good, count.Bad, count.Wet];
-  pie.update();
+      </div>
 
-  // Add to history
-  const li = document.createElement("li");
-  li.innerText = `${data.result.label} - ${data.result.confidence}%`;
-  historyList.prepend(li);
-});
+      <!-- RIGHT SIDE -->
+      <div class="right-panel">
 
-socket.on("moisture-update", data => {
+        <div class="card">
+          <h3>Moisture Graph</h3>
+          <canvas id="moistureChart"></canvas>
+        </div>
 
-  moistText.innerText = `${data.moisture}%`;
+        <div class="card">
+          <h3>Prediction History</h3>
+          <ul id="predictionHistory"></ul>
+        </div>
 
-  moistureLabels.push(data.time);
-  moistureValues.push(data.moisture);
+        <div class="card">
+          <h3>Quality Distribution</h3>
+          <canvas id="pieChart"></canvas>
+        </div>
 
-  if (moistureLabels.length > 40) {
-    moistureLabels.shift();
-    moistureValues.shift();
-  }
+      </div>
+    </div>
 
-  moistureChart.update();
-});
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

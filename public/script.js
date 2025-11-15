@@ -1,47 +1,95 @@
-const video = document.getElementById('video');
-const statusBox = document.getElementById('latestStatus');
+const video = document.getElementById("video");
+const statusBox = document.getElementById("latestStatus");
+const latestImage = document.getElementById("latestImage");
 
 let model;
 
-// Load model
+// Load model (Frontend)
 (async () => {
-  model = await tf.loadLayersModel('/model/model.json');
-  statusBox.innerText = "Model Loaded!";
+    model = await tf.loadLayersModel("/model/model.json");
+    statusBox.innerText = "Model Loaded. Starting...";
+    console.log("Frontend Model Loaded");
 })();
 
+// Start Camera
 async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
-  video.srcObject = stream;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" }
+        });
+        video.srcObject = stream;
+
+        video.onloadedmetadata = () => video.play();
+    } catch (err) {
+        console.error("Camera Error:", err);
+        statusBox.innerText = "Camera Error!";
+    }
 }
 
 startCamera();
 
-// Convert frame to Tensor
-function captureTensor() {
-  const c = document.createElement('canvas');
-  c.width = video.videoWidth;
-  c.height = video.videoHeight;
-  c.getContext('2d').drawImage(video, 0, 0);
+// Capture Frame & Make Tensor
+function captureFrame() {
+    if (video.videoWidth === 0) return null;
 
-  return c;
+    const canvas = document.createElement("canvas");
+    canvas.width = 224;
+    canvas.height = 224;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, 224, 224);
+
+    // Show latest frame
+    latestImage.src = canvas.toDataURL("image/jpeg");
+
+    return canvas;
+}
+
+// Predict from frontend model
+async function predictFrontend(canvas) {
+    const imgData = tf.browser.fromPixels(canvas)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .div(255.0)
+        .expandDims(0);
+
+    const pred = model.predict(imgData);
+    const scores = await pred.data();
+
+    const labels = ["Good Rice", "Bad Rice", "Wet Rice"];
+    const maxIdx = scores.indexOf(Math.max(...scores));
+
+    return {
+        label: labels[maxIdx],
+        confidence: (scores[maxIdx] * 100).toFixed(2)
+    };
 }
 
 async function processFrame() {
-  if (!model) return;
+    if (!model) return;
 
-  const canvas = captureTensor();
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg'));
+    const canvas = captureFrame();
+    if (!canvas) return;
 
-  // SEND TO BACKEND
-  const fd = new FormData();
-  fd.append("riceImage", blob);
+    // FRONTEND PREDICTION
+    const result = await predictFrontend(canvas);
 
-  const req = await fetch("/upload", { method: "POST", body: fd });
-  const resp = await req.json();
+    statusBox.innerText = `AI: ${result.label} (${result.confidence}%)`;
 
-  statusBox.innerText = `AI: ${resp.label} (${resp.confidence}%)`;
+    // Convert to Blob for backend
+    const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg"));
+
+    const fd = new FormData();
+    fd.append("riceImage", blob);
+    fd.append("label", result.label);
+    fd.append("confidence", result.confidence);
+
+    // SEND TO BACKEND for dashboard
+    await fetch("/upload", {
+        method: "POST",
+        body: fd
+    });
 }
 
+// Run every 10 seconds
 setInterval(processFrame, 10000);
