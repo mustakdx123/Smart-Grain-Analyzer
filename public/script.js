@@ -88,5 +88,5 @@ function captureImage() {
     return canvas.toDataURL("image/jpeg");
 }
 
-// Auto Predict every 1 sec
+// Auto Predict every 10 sec
 setInterval(predictFrame, 1000);
