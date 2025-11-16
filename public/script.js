@@ -89,4 +89,4 @@ function captureImage() {
 }
 
 // Auto Predict every 10 sec
-setInterval(predictFrame,10000);
+setInterval(predictFrame, 10000);
